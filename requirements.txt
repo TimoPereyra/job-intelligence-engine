@@ -1,0 +1,4 @@
+supabase
+jobspy
+openai
+python-dotenv
