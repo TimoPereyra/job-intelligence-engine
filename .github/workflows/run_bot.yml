@@ -23,24 +23,18 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          # PYTHONDONTWRITEBYTECODE evita conflictos con archivos .pyc corruptos
-          PYTHONDONTWRITEBYTECODE: 1
-          # PYTHONPATH asegura que Python busque en la raíz antes que en ningún otro lado
-          PYTHONPATH: ${{ github.workspace }}
         run: |
-          # 1. Instalar dependencias del sistema para Playwright
+          # 1. Instalar dependencias
           sudo apt-get update
           sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
-          
-          # 2. Instalación limpia de paquetes
           python -m pip install --upgrade pip
           pip install jobspy supabase openai python-dotenv playwright
           playwright install chromium
           
-          # 3. Borrar cualquier rastro de archivos compilados viejos que puedan estar causando conflictos
-          find . -name "*.pyc" -delete
-          find . -name "__pycache__" -delete
+          # 2. Localizar la ruta de las librerías instaladas
+          # Esto encuentra dónde está guardado jobspy realmente
+          SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
+          echo "Ruta de librerías: $SITE_PACKAGES"
           
-          # 4. Ejecución del bot como módulo
-          # Esto evita que Python ignore paquetes instalados al detectar estructuras de carpetas locales
-          python -m main
+          # 3. Ejecutar forzando el PYTHONPATH a esa ruta
+          PYTHONPATH=$SITE_PACKAGES:${{ github.workspace }} python -m main
