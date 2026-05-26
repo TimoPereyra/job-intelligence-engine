@@ -1,9 +1,15 @@
 import sys
+import os
+
+# --- INYECCIÓN DE SEGURIDAD LOCAL ---
+lib_path = "/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages"
+if os.path.exists(lib_path) and lib_path not in sys.path:
+    sys.path.append(lib_path)
+
+# --- AHORA LAS IMPORTACIONES ---
+from jobspy import scrape_jobs
 import logging
 import re
-from jobspy import scrape_jobs
-
-
 class JobSpyAdapter:
 
     def __init__(self):
