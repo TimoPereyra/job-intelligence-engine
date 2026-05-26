@@ -19,21 +19,27 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Instalar todo y ejecutar
+      - name: Instalar dependencias y ejecutar
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          # Esta línea es la clave: le decimos a Python dónde buscar módulos
+          # Esta variable es vital para que Python encuentre tus subcarpetas
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          # 1. Instalar dependencias del sistema
+          # 1. Instalar dependencias del sistema necesarias para Playwright
           sudo apt-get update
           sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
           
-          # 2. Instalación forzada usando el módulo de python activo
+          # 2. Instalar librerías usando el módulo -m para asegurar que van al mismo Python
           python -m pip install --upgrade pip
           python -m pip install jobspy supabase openai python-dotenv playwright
+          
+          # 3. Instalar los binarios de navegador que usa jobspy
           python -m playwright install chromium
           
-          # 3. Ejecución forzada: llamamos al mismo ejecutable que instaló las cosas
+          # 4. Verificar qué ve Python ANTES de ejecutar
+          echo "Verificando instalación:"
+          python -c "import jobspy; print('jobspy importado correctamente')"
+          
+          # 5. Ejecutar tu script
           python main.py
