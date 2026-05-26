@@ -3,6 +3,8 @@ name: Run Job Bot Automation
 on:
   schedule:
     - cron: '0 11 * * *'
+    - cron: '0 16 * * *'
+    - cron: '0 22 * * *'
   workflow_dispatch: 
 
 jobs:
@@ -17,21 +19,20 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Instalar y Ejecutar
+      - name: Instalar dependencias y ejecutar
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          # Inyectamos la carpeta local 'deps' en el PYTHONPATH
-          PYTHONPATH: ${{ github.workspace }}/deps
+          # Incluimos ambos: la carpeta deps y la raíz del proyecto para importar módulos locales
+          PYTHONPATH: ${{ github.workspace }}/deps:${{ github.workspace }}
         run: |
-          # 1. Instalar dependencias en una carpeta local llamada 'deps'
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
+          
           mkdir -p deps
           pip install --target=${{ github.workspace }}/deps jobspy supabase openai python-dotenv playwright
           
-          # 2. Instalar dependencias del sistema (necesarias para playwright)
-          sudo apt-get update
-          sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
-          playwright install chromium
+          # Ejecución segura de playwright mediante el módulo de Python
+          python -m playwright install chromium
           
-          # 3. Ejecutar
           python main.py

@@ -1,18 +1,12 @@
-import sys
 import logging
 import re
 from jobspy import scrape_jobs
 
-
 class JobSpyAdapter:
-
     def __init__(self):
-
         self.default_results_wanted = 25
         self.default_hours_old = 72
-
         self.site_names = ["linkedin", "indeed"]
-
         self.skip_keywords = [
             "senior", "sr", "staff", "principal", "lead", "architect",
             "golang", "ruby", "rails", "scala",
@@ -23,10 +17,6 @@ class JobSpyAdapter:
             "salesforce", "sap", "qa automation",
         ]
 
-    # =========================
-    # CLEAN
-    # =========================
-
     def _clean_text(self, text):
         if not text:
             return ""
@@ -35,29 +25,16 @@ class JobSpyAdapter:
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
-    # =========================
-    # SKIP FILTER
-    # =========================
-
     def _should_skip_job(self, title):
         title = title.lower()
         return any(k in title for k in self.skip_keywords)
 
-    # =========================
-    # SEARCH
-    # =========================
-
     def search(self, query, results_wanted=None, hours_old=None):
-
         results_wanted = results_wanted or self.default_results_wanted
         hours_old = hours_old or self.default_hours_old
 
         try:
-
-            print("\n" + "=" * 60)
-            print(f"🔍 BUSCANDO: {query}")
-            print("=" * 60)
-
+            print(f"\n🔍 BUSCANDO: {query}")
             jobs = scrape_jobs(
                 site_name=self.site_names,
                 search_term=query,
@@ -69,20 +46,15 @@ class JobSpyAdapter:
             )
 
             if jobs.empty:
-                print("⚠️ Sin resultados")
                 return []
 
             results = []
-
             for _, job in jobs.iterrows():
-
                 title = self._clean_text(job.get("title", ""))
-
                 if self._should_skip_job(title):
                     continue
 
                 description = self._clean_text(job.get("description", ""))[:1500]
-
                 results.append({
                     "title": title,
                     "company": self._clean_text(job.get("company", "")),
@@ -93,20 +65,13 @@ class JobSpyAdapter:
                     "posted_at": str(job.get("date_posted", "")),
                 })
 
-            # =========================
-            # DEDUP
-            # =========================
-
             seen = set()
             unique = []
-
             for job in results:
                 url = job.get("url")
                 if url and url not in seen:
                     seen.add(url)
                     unique.append(job)
-
-            print(f"✅ JOBS FILTRADOS: {len(unique)}")
 
             return unique
 
