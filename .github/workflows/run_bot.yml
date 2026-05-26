@@ -17,24 +17,21 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Instalar dependencias y ejecutar
+      - name: Instalar y Ejecutar
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # Inyectamos la carpeta local 'deps' en el PYTHONPATH
+          PYTHONPATH: ${{ github.workspace }}/deps
         run: |
-          # 1. Instalar dependencias del sistema
+          # 1. Instalar dependencias en una carpeta local llamada 'deps'
+          mkdir -p deps
+          pip install --target=${{ github.workspace }}/deps jobspy supabase openai python-dotenv playwright
+          
+          # 2. Instalar dependencias del sistema (necesarias para playwright)
           sudo apt-get update
           sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
-          
-          # 2. CREAR Y USAR UN ENTORNO VIRTUAL
-          # Esto garantiza que el instalador y el ejecutor vean los mismos paquetes
-          python -m venv venv
-          source venv/bin/activate
-          
-          # 3. Instalación DENTRO del venv
-          python -m pip install --upgrade pip
-          pip install jobspy supabase openai python-dotenv playwright
           playwright install chromium
           
-          # 4. Ejecución DENTRO del venv
+          # 3. Ejecutar
           python main.py
