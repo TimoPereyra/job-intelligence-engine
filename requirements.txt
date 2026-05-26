@@ -1,4 +1,4 @@
-jobspy
+python-jobspy
 supabase
 openai
 python-dotenv
