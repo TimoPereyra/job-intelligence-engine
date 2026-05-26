@@ -3,8 +3,6 @@ name: Run Job Bot Automation
 on:
   schedule:
     - cron: '0 11 * * *'
-    - cron: '0 16 * * *'
-    - cron: '0 22 * * *'
   workflow_dispatch: 
 
 jobs:
@@ -19,25 +17,18 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Instalar dependencias
-        env:
-          # Forzamos a que pip instale en la ruta donde Python busca sus paquetes
-          PYTHONUSERBASE: /opt/hostedtoolcache/Python/3.10.20/x64
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
-          
-          # Instalación global forzada a la ruta reconocida
-          python -m pip install --upgrade pip
-          pip install --user jobspy supabase openai python-dotenv playwright
-          
-          # Instalación de navegadores
-          python -m playwright install chromium
-
-      - name: Ejecutar Bot
+      - name: Instalar y ejecutar
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          PYTHONUSERBASE: /opt/hostedtoolcache/Python/3.10.20/x64
         run: |
-          python main.py
+          # Crear entorno virtual local
+          python -m venv venv
+          
+          # Instalar dependencias en el entorno virtual
+          ./venv/bin/pip install --upgrade pip
+          ./venv/bin/pip install jobspy supabase openai python-dotenv playwright
+          ./venv/bin/python -m playwright install chromium
+          
+          # Ejecutar usando el ejecutable del entorno virtual
+          ./venv/bin/python main.py
