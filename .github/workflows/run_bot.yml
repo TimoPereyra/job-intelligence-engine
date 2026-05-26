@@ -3,8 +3,6 @@ name: Run Job Bot Automation
 on:
   schedule:
     - cron: '0 11 * * *'
-    - cron: '0 16 * * *'
-    - cron: '0 22 * * *'
   workflow_dispatch: 
 
 jobs:
@@ -21,22 +19,20 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          # Actualizar sistema e instalar librerías necesarias para Playwright
           sudo apt-get update
           sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
           
-          # Instalar dependencias definidas en tu requirements.txt
+          # Instalación forzada al directorio de usuario del runner
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          
-          # Instalar el navegador para Playwright
+          pip install --user -r requirements.txt
           python -m playwright install chromium
 
       - name: Ejecutar Bot
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          # PYTHONPATH le dice a Python que busque módulos en la raíz del repositorio
+          # Esto le dice a Python que incluya la ruta de instalación local en su búsqueda
           PYTHONPATH: ${{ github.workspace }}
+          PYTHONUSERBASE: /home/runner/.local
         run: |
           python main.py
