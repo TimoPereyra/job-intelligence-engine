@@ -25,11 +25,17 @@ class QueryGenerator:
         queries = [
             "php developer",
             "laravel developer",
+            "software developer",
+            "desarrollador backend",
+            "desarrollador fullstack",
+            "programador web",
             "backend developer",
             "fullstack developer",
             "oracle developer",
             "react developer",
             "sql developer",
+            "ssr developer", 
+            "semi senior developer"
         ]
 
         # =========================================

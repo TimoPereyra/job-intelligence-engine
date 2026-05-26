@@ -2,7 +2,9 @@ name: Run Job Bot Automation
 
 on:
   schedule:
-    - cron: '0 11 * * *'
+    # 09:00 UTC y 21:00 UTC (Equivale a 06:00 y 18:00 hora Argentina)
+    - cron: '0 9 * * *'
+    - cron: '0 21 * * *'
   workflow_dispatch: 
 
 jobs:
@@ -30,6 +32,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
           python main.py

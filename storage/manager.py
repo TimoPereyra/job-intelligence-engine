@@ -13,49 +13,65 @@ class StorageManager:
             raise ValueError("❌ Falta configurar SUPABASE_URL o SUPABASE_KEY en el .env")
         self.supabase: Client = create_client(url, key)
 
+    def _clean_str(self, value) -> str:
+        """Convierte a string limpio. None y 'None' se convierten en string vacío."""
+        if value is None:
+            return ""
+        s = str(value).strip()
+        return "" if s.lower() == "none" else s
+
     def _serialize_job(self, job) -> dict:
-        """Limpia el objeto de JobSpy para que Supabase lo entienda sin romper"""
-        # Si viene como objeto/DataFrame, lo pasamos a dict común
         job_dict = job if isinstance(job, dict) else job.__dict__
-        
+
+        # El adapter normaliza a "url", jobspy raw usa "job_url"
+        url = self._clean_str(job_dict.get("url") or job_dict.get("job_url"))
+
+        description = self._clean_str(job_dict.get("description"))
+
         return {
-            "title": str(job_dict.get("title", "")),
-            "company": str(job_dict.get("company", "")),
-            "url": str(job_dict.get("job_url") or job_dict.get("url", "")),
-            "description": str(job_dict.get("description", "")),
-            "status": "pending"
+            "title":       self._clean_str(job_dict.get("title")),
+            "company":     self._clean_str(job_dict.get("company")),
+            "url":         url,
+            "description": description,
+            "status":      "pending",
         }
 
     def save_raw_jobs(self, jobs_list: list) -> int:
         if not jobs_list:
             return 0
-        
-        # 1. Serializamos y limpiamos los campos primero
+
         clean_jobs = [self._serialize_job(j) for j in jobs_list if j]
-        
-        # 2. 🔥 FILTRO ANTI-DUPLICADOS DENTRO DEL MISMO LOTE
-        # Usamos la URL como clave en un dict para borrar repetidos en memoria
+
+        # Deduplicar por URL dentro del lote
         unique_jobs_dict = {}
         for job in clean_jobs:
             url = job.get("url")
             if url:
-                unique_jobs_dict[url] = job  # Si se repite, pisa el anterior y queda uno solo
-        
+                unique_jobs_dict[url] = job
+
         jobs_to_insert = list(unique_jobs_dict.values())
 
-        # 3. Enviamos el lote limpio a Supabase
         try:
-            res = self.supabase.table("jobs").upsert(jobs_to_insert, on_conflict="url").execute()
+            res = self.supabase.table("jobs").upsert(
+                jobs_to_insert,
+                on_conflict="url",
+                # ignoreDuplicates=True  ← alternativa: no pisa registros existentes
+            ).execute()
             return len(res.data) if res.data else 0
         except Exception as e:
             print(f"❌ Error insertando lote: {e}")
             return 0
 
     def load_jobs(self) -> list:
-        """Trae únicamente los jobs pendientes de calificación"""
+        """Trae únicamente los jobs pendientes de calificación."""
         try:
-            # Corregimos sintaxis de la query para la versión actual de supabase-py
-            res = self.supabase.from_("jobs").select("*").eq("status", "pending").execute()
+            res = (
+                self.supabase
+                .from_("jobs")
+                .select("*")
+                .eq("status", "pending")
+                .execute()
+            )
             return res.data if res.data else []
         except Exception as e:
             print(f"❌ Error cargando jobs: {e}")
@@ -64,21 +80,28 @@ class StorageManager:
     def save_ranked_jobs(self, ranked_jobs: list):
         if not ranked_jobs:
             return
-        
-        # Le mandamos el objeto completo para respetar los campos NOT NULL de la DB
-        payload = [
-            {
-                "url": job.get("url"),
-                "title": job.get("title"),
-                "company": job.get("company"),
-                "description": job.get("description"),
-                "score": job.get("score", 0),
+
+        payload = []
+        for job in ranked_jobs:
+            description = self._clean_str(job.get("description"))
+
+            entry = {
+                "url":         self._clean_str(job.get("url")),
+                "title":       self._clean_str(job.get("title")),
+                "company":     self._clean_str(job.get("company")),
+                "score":       job.get("score", 0),
                 "recommended": job.get("recommended", False),
-                "ai_summary": job.get("ai_summary", ""),
-                "status": "qualified"
+                "ai_summary":  self._clean_str(job.get("ai_summary")),
+                "status":      "qualified",
             }
-            for job in ranked_jobs
-        ]
+
+            # Solo incluimos description en el upsert si tiene contenido.
+            # Así no pisamos una descripción ya guardada con un string vacío.
+            if description:
+                entry["description"] = description
+
+            payload.append(entry)
+
         try:
             self.supabase.table("jobs").upsert(payload, on_conflict="url").execute()
             print("💾 Calificaciones guardadas exitosamente en Supabase.")
