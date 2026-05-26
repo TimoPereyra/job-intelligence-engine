@@ -19,27 +19,20 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Crear entorno virtual e instalar dependencias
-        run: |
-          # Crear el entorno virtual
-          python -m venv venv
-          # Activar entorno virtual y actualizar pip
-          source venv/bin/activate
-          python -m pip install --upgrade pip
-          # Instalar dependencias
-          pip install jobspy supabase openai python-dotenv playwright
-          # Instalar binarios de navegador necesarios para jobspy
-          playwright install chromium
-          # Instalar dependencias del sistema necesarias para el navegador
-          sudo apt-get update
-          sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
-
-      - name: Ejecutar el bot
+      - name: Instalar dependencias y ejecutar bot
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          # Activar el entorno virtual antes de correr el script
-          source venv/bin/activate
+          # 1. Instalar dependencias del sistema
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
+          
+          # 2. Instalar dependencias de Python directamente en el entorno global
+          python -m pip install --upgrade pip
+          pip install jobspy supabase openai python-dotenv playwright
+          playwright install chromium
+          
+          # 3. Ejecutar el bot
           python main.py
