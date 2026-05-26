@@ -19,10 +19,16 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Instalar librerías
+      - name: Instalar dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
+
+      - name: Instalar librerías de Python
         run: |
           python -m pip install --upgrade pip
-          pip install jobspy supabase openai python-dotenv
+          pip install jobspy supabase openai python-dotenv playwright
+          playwright install chromium
 
       - name: Ejecutar el bot
         env:
