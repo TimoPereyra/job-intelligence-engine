@@ -1,58 +1,78 @@
-import os
-from dotenv import load_dotenv
-from google import genai
-
-# Importamos tus módulos
+import sys
+import logging
 from core.query_generator import QueryGenerator
 from adapters.jobspy_adapter import JobSpyAdapter
+from services.filtering import FilteringService
+from services.qualification import Qualification
 from storage.manager import StorageManager
-from services.qualification import QualificationService
 
-# Cargamos variables de entorno
-load_dotenv()
+# Configuración de logs para ver qué pasa en GitHub Actions
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
-def main():
-    # 1. SETUP: Inicializamos todo
-    storage = StorageManager()
-    client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-    gen = QueryGenerator()
-    adapter = JobSpyAdapter()
-    qualifier = QualificationService(client)
+def run_pipeline():
+    logger.info("🚀 INICIANDO PIPELINE DE JOBBOT")
 
-    print("🚀 Iniciando ciclo de búsqueda...")
+    # 1. Inicialización
+    try:
+        query_gen = QueryGenerator()
+        adapter = JobSpyAdapter()
+        filter_svc = FilteringService()
+        qualifier = Qualification()
+        storage = StorageManager()
+    except Exception as e:
+        logger.error(f"Error inicializando componentes: {e}")
+        return
 
-    # 2. BÚSQUEDA Y PERSISTENCIA (El Scraper llena el "buffer" de nuevas)
-    queries = gen.generate("Desarrollador Python y React en Buenos Aires")
-    for q in queries:
-        jobs = adapter.search(q)
-        for job in jobs:
-            # Aquí el StorageManager verifica si es nuevo y lo guarda
-            storage.mark_as_new(job)
-
-    # 3. CALIFICACIÓN (Procesamos solo lo que está en 'new')
-    new_jobs = storage.get_jobs_by_status('new')
-    print(f"🔍 Encontradas {len(new_jobs)} ofertas nuevas.")
+    # 2. Scraping
+    queries = query_gen.generate().get("queries", [])
+    logger.info(f"📦 Ejecutando {len(queries)} búsquedas...")
     
-    for job in new_jobs:
-        # Calificamos con la IA
+    all_jobs = []
+    for query in queries:
         try:
-            score_data = qualifier.qualify(job, "Desarrollador Python/React")
-            # Actualizamos en el JSON con el score y el nuevo estado
-            storage.update_job_status(
-                job_url=job['url'], 
-                status='scored', 
-                score=score_data['score']
-            )
-            print(f"✅ Calificada: {job['title']} (Score: {score_data['score']})")
+            jobs = adapter.search(query, hours_old=24)
+            all_jobs.extend(jobs)
         except Exception as e:
-            print(f"❌ Error al calificar {job['title']}: {e}")
+            logger.warning(f"Error en búsqueda '{query}': {e}")
 
-    # 4. DISPATCHER (Próximo paso: Aquí iría tu lógica de Webhook)
-    scored_jobs = storage.get_jobs_by_status('scored')
-    # filtered = [j for j in scored_jobs if j.get('score', 0) >= 7]
-    # send_to_webhook(filtered)
+    if not all_jobs:
+        logger.info("🛑 No se encontraron ofertas nuevas. Finalizando.")
+        return
 
-    print("🏁 Ciclo finalizado.")
+    # 3. Filtrado y Persistencia Inicial
+    clean_jobs = filter_svc.filter_jobs(all_jobs)
+    new_count = storage.save_raw_jobs(clean_jobs)
+    logger.info(f"✨ Guardados {new_count} registros nuevos únicos.")
+
+    # 4. Calificación IA
+    to_qualify = storage.load_jobs()
+    if not to_qualify:
+        logger.info("✅ Todo está al día. Nada para calificar.")
+        return
+
+    logger.info(f"🧠 Calificando {len(to_qualify)} ofertas con IA...")
+    ranked = qualifier.qualify_jobs(to_qualify)
+    
+    # Ordenar por score
+    ranked.sort(key=lambda x: x.get("score", 0), reverse=True)
+    
+    # 5. Guardar resultados finales
+    storage.save_ranked_jobs(ranked)
+    
+    # 6. Reporte Final
+    recommended = [j for j in ranked if j.get("recommended")]
+    logger.info(f"🏁 Finalizado. Total calificados: {len(ranked)} | Recomendados: {len(recommended)}")
 
 if __name__ == "__main__":
-    main()
+    try:
+        run_pipeline()
+    except KeyboardInterrupt:
+        logger.info("Proceso detenido por el usuario.")
+    except Exception as e:
+        logger.error(f"Error crítico en el pipeline: {e}")
+        sys.exit(1)

@@ -112,6 +112,8 @@ Devuelve JSON:
 
         if result["recommended"] and self.client:
             result["ai_summary"] = self._ai(job, pos)
+        else:
+            result["ai_summary"] = "Filtrado por puntaje (IA desactivada)"
 
         self.cache[key] = result
 
