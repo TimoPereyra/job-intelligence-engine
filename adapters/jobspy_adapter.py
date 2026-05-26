@@ -1,6 +1,7 @@
-from jobspy import scrape_jobs
+import sys
 import logging
 import re
+from jobspy import scrape_jobs
 
 
 class JobSpyAdapter:
