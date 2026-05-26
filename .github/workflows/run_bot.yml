@@ -19,20 +19,21 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Instalar dependencias y ejecutar bot
+      - name: Instalar todo y ejecutar
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # Esta línea es la clave: le decimos a Python dónde buscar módulos
           PYTHONPATH: ${{ github.workspace }}
         run: |
           # 1. Instalar dependencias del sistema
           sudo apt-get update
           sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
           
-          # 2. Instalar dependencias de Python directamente en el entorno global
+          # 2. Instalación forzada usando el módulo de python activo
           python -m pip install --upgrade pip
-          pip install jobspy supabase openai python-dotenv playwright
-          playwright install chromium
+          python -m pip install jobspy supabase openai python-dotenv playwright
+          python -m playwright install chromium
           
-          # 3. Ejecutar el bot
+          # 3. Ejecución forzada: llamamos al mismo ejecutable que instaló las cosas
           python main.py
