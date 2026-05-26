@@ -1,12 +1,20 @@
 import sys
+import os
 import logging
+
+# --- 1. INYECCIÓN DE SEGURIDAD (Esto debe ir primero) ---
+lib_path = "/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages"
+if os.path.exists(lib_path) and lib_path not in sys.path:
+    sys.path.append(lib_path)
+
+# --- 2. IMPORTACIONES (Ahora que el path está corregido, esto funcionará) ---
 from core.query_generator import QueryGenerator
 from adapters.jobspy_adapter import JobSpyAdapter
 from services.filtering import FilteringService
 from services.qualification import Qualification
 from storage.manager import StorageManager
 
-# Configuración de logs para ver qué pasa en GitHub Actions
+# --- 3. CONFIGURACIÓN DE LOGS ---
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',

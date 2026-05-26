@@ -24,17 +24,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          # 1. Instalar dependencias
+          # 1. Dependencias del sistema
           sudo apt-get update
           sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
+          
+          # 2. Instalación de librerías
           python -m pip install --upgrade pip
           pip install jobspy supabase openai python-dotenv playwright
           playwright install chromium
           
-          # 2. Localizar la ruta de las librerías instaladas
-          # Esto encuentra dónde está guardado jobspy realmente
-          SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
-          echo "Ruta de librerías: $SITE_PACKAGES"
-          
-          # 3. Ejecutar forzando el PYTHONPATH a esa ruta
-          PYTHONPATH=$SITE_PACKAGES:${{ github.workspace }} python -m main
+          # 3. Ejecución del bot
+          python main.py
