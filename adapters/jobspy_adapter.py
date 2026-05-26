@@ -1,15 +1,7 @@
-import sys
-import os
-import site
-
-# Agregar todas las rutas de usuario posibles al path
-user_site = site.getusersitepackages()
-if user_site not in sys.path:
-    sys.path.append(user_site)
-
-from jobspy import scrape_jobs
 import logging
 import re
+from jobspy import scrape_jobs
+
 class JobSpyAdapter:
     def __init__(self):
         self.default_results_wanted = 25
