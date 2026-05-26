@@ -3,5 +3,3 @@ supabase
 openai
 python-dotenv
 playwright
-setuptools
-wheel
