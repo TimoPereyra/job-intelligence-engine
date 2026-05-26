@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: '0 11 * * *'
     - cron: '0 16 * * *'
+    - cron: '0 22 * * *'
   workflow_dispatch: 
 
 jobs:
@@ -18,21 +19,23 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Instalar dependencias y ejecutar
+      - name: Instalar y verificar
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          PYTHONPATH: ${{ github.workspace }}
         run: |
           # 1. Instalar dependencias del sistema
           sudo apt-get update
           sudo apt-get install -y libnss3 libnspr4 libgbm1 libasound2t64 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1 libxkbcommon0
           
-          # 2. INSTALACIÓN GLOBAL (sin --user)
-          # Esto garantiza que el paquete quede en /opt/hostedtoolcache/... donde Python busca primero
+          # 2. Instalación limpia y directa
           python -m pip install --upgrade pip
-          python -m pip install jobspy supabase openai python-dotenv playwright
-          python -m playwright install chromium
+          pip install jobspy supabase openai python-dotenv playwright
+          playwright install chromium
           
-          # 3. Ejecución directa
+          # 3. VERIFICACIÓN CRÍTICA: Listar paquetes instalados
+          echo "Lista de paquetes instalados:"
+          pip list
+          
+          # 4. Ejecución del bot
           python main.py
