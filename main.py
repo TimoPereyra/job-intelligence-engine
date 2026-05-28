@@ -28,33 +28,7 @@ def run_pipeline():
         logger.error(f"Error inicializando componentes: {e}")
         return
 
-    ### -------------------------------------------------------------------
-    ### NUEVO: Modo Individual (Viene de Postman o Vercel)
-    ### -------------------------------------------------------------------
-    # Revisamos si pasamos un argumento extra por consola y que no esté vacío
-    if len(sys.argv) > 1 and sys.argv[1].strip() != "":
-        job_url_input = sys.argv[1].strip()
-        logger.info(f"🎯 MODO INDIVIDUAL: Procesando la URL puntual: {job_url_input}")
-        
-        # Armamos un diccionario con la estructura básica que esperan tus servicios
-        # (Ajustá las llaves 'job_url' o 'url' según lo que use tu Qualification/Filter)
-        single_job = {
-            "job_url": job_url_input,
-            "title": "Oferta Individual Externa", # Datos mock por si tus servicios los piden
-            "company": "Desconocido"
-        }
-        
-        # Mandamos la oferta directa a calificar con tu IA
-        logger.info("🧠 Calificando oferta individual con IA...")
-        ranked_single = qualifier.qualify_jobs([single_job])
-        
-        # Guardamos el resultado en tu Supabase / Storage
-        storage.save_ranked_jobs(ranked_single)
-        logger.info("🏁 Finalizado Modo Individual. Resultado guardado con éxito.")
-        return # Cortamos el pipeline acá para que NO corra el cron automático diario
-    ### -------------------------------------------------------------------
-
-    # 2. Scraping (Tu flujo programado de siempre sigue acá abajo INTACTO)
+    # 2. Scraping (Flujo automático programado)
     queries = query_gen.generate().get("queries", [])
     logger.info(f"📦 Ejecutando {len(queries)} búsquedas...")
     
