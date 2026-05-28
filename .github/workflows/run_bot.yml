@@ -5,7 +5,14 @@ on:
     # 09:00 UTC y 21:00 UTC (Equivale a 06:00 y 18:00 hora Argentina)
     - cron: '0 9 * * *'
     - cron: '0 21 * * *'
-  workflow_dispatch: 
+  
+  # Modificamos esta parte para agregar el input que va a mandar Postman/Vercel
+  workflow_dispatch:
+    inputs:
+      job_url:
+        description: 'URL de la oferta de trabajo a procesar individualmente'
+        required: false # Lo dejamos en false para que el cron diario siga corriendo sin que nadie le pase una URL a mano
+        default: ''
 
 jobs:
   run-bot:
@@ -35,4 +42,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          python main.py
+          # Le pasamos el parámetro al script de Python. 
+          # Si viene de Postman, le pasa la URL. Si corre por el cron diario, va a ir vacío y tu Python sabrá qué hacer.
+          python main.py "${{ github.event.inputs.job_url }}"
