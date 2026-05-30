@@ -1,33 +1,32 @@
 import os
 import json
 import re
+import sys
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
+
+# Para asegurar que Python encuentre la carpeta 'core' al ejecutar localmente
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.orchestrator import run_automation_pipeline
 
 class handler(BaseHTTPRequestHandler):
 
     def _send_json_response(self, status_code, data):
-        """Helper seguro para enviar la respuesta y CERRAR la conexión"""
         try:
             self.send_response(status_code)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*') 
             self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
             self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
-            self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('X-Frame-Options', 'DENY')
             self.end_headers()
             
-            # Convertimos a bytes y enviamos
             response_bytes = json.dumps(data).encode('utf-8')
             self.wfile.write(response_bytes)
-            # El truco para evitar el NO_RESPONSE: vaciar el buffer
             self.wfile.flush() 
         except Exception as e:
             print(f"Error enviando respuesta: {e}")
 
     def do_OPTIONS(self):
-        """Responde a las peticiones preflight del navegador"""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
@@ -35,68 +34,82 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        # 1. VERIFICACIÓN DE SEGURIDAD: Validar Token de Autorización
+        # 1. Capturamos los valores
         auth_header = self.headers.get('Authorization', '')
         secret_key = os.environ.get("INTERNAL_API_KEY")
 
+        # 2. DEBUG VISUAL EN CONSOLA
+        print("\n--- 🔍 DEBUG DE SEGURIDAD ---")
+        print(f"Variable de entorno (INTERNAL_API_KEY): '{secret_key}'")
+        print(f"Header recibido (Authorization): '{auth_header}'")
+        print("-----------------------------\n")
+
+        # 3. Validación de Entorno (Servidor)
         if not secret_key:
-            print("❌ ALERTA: INTERNAL_API_KEY no configurada.")
-            self._send_json_response(500, {
-                "status": "error", 
-                "message": "Configuración de seguridad incompleta en el servidor."
-            })
-            return
+            print("❌ ERROR: La variable de entorno INTERNAL_API_KEY está vacía o no se cargó.")
+            return self._send_json_response(500, {"error": "Error interno del servidor: Falta configuración de seguridad."})
 
-        if not auth_header or auth_header != f"Bearer {secret_key}":
-            self._send_json_response(401, {
-                "status": "error", 
-                "message": "Acceso denegado: Credenciales inválidas."
-            })
-            return
+        # 4. Validación de Petición (Cliente)
+        expected_header = f"Bearer {secret_key}"
+        if not auth_header or auth_header != expected_header:
+            print(f"❌ ERROR: Credenciales inválidas. Se esperaba '{expected_header}'")
+            return self._send_json_response(401, {"error": "Acceso denegado."})
 
+        print("✅ Seguridad aprobada. Procesando petición...")
+
+        # 5. Resto de tu lógica
         try:
-            # 2. LIMITACIÓN DE TAMAÑO
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length > 4096:
-                self._send_json_response(400, {"status": "error", "message": "Petición demasiado grande."})
-                return
+                return self._send_json_response(400, {"error": "Petición grande."})
 
-            # Leer cuerpo
             post_data = self.rfile.read(content_length)
             payload = json.loads(post_data.decode('utf-8'))
             job_url = payload.get("url", "").strip()
 
-            # 3. SANITIZACIÓN Y VALIDACIÓN DE URL
-            if not job_url:
-                self._send_json_response(400, {"status": "error", "message": "Falta el parámetro 'url'."})
-                return
+            if not job_url or not re.match(r'^https?://', job_url):
+                return self._send_json_response(400, {"error": "URL inválida."})
 
-            url_pattern = re.compile(
-                r'^(https?://)'
-                r'(([a-zA-Z0-9_]|-)+\.)+[a-zA-Z]{2,}'
-                r'(/.*)?$'
-            )
+            # === EJECUCIÓN DEL PIPELINE ORQUESTADO ===
+            resultado = run_automation_pipeline(job_url)
             
-            if not url_pattern.match(job_url):
-                self._send_json_response(400, {"status": "error", "message": "Formato de URL inválido o inseguro."})
-                return
+            # Si el orquestador cortó temprano por un error esperado
+            if resultado.get("status") == "error":
+                # Usamos 400 (Bad Request) o 422 (Unprocessable Entity) porque el servidor anda bien, pero el proceso rebotó
+                return self._send_json_response(400, resultado)
+            
+            # Si llegó al final con éxito
+            self._send_json_response(200, resultado)
 
-            # Si todo pasó con éxito, respondemos cerrando bien el canal:
-            self._send_json_response(200, {
-                "status": "success",
-                "message": "Capa de seguridad aprobada. Listo para procesar.",
-                "verified_domain": urlparse(job_url).netloc
-            })
-
-        except json.JSONDecodeError:
-            self._send_json_response(400, {"status": "error", "message": "JSON malformado."})
         except Exception as e:
-            print(f"❌ Error interno: {str(e)}")
-            self._send_json_response(500, {"status": "error", "message": "Error interno del servidor."})
+            # Esto ahora SOLO va a saltar si hay un error catastrófico (ej: se cae la base de datos, error de sintaxis)
+            print(f"💥 Error crítico no controlado: {str(e)}")
+            self._send_json_response(500, {"error": "Fallo crítico en el servidor."})
 
 if __name__ == '__main__':
     from http.server import HTTPServer
-    # Levantamos el servidor nativo en el puerto 8000
+    
+    # --- CARGADOR NATIVO DE .env (Ruta Absoluta y Seguro) ---
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(os.path.dirname(current_dir)) 
+    env_path = os.path.join(root_dir, '.env')
+
+    if os.path.exists(env_path):
+        print(f"📄 Cargando variables desde: {env_path}")
+        # El utf-8-sig es la magia que elimina los caracteres ocultos de Windows
+        with open(env_path, encoding='utf-8-sig') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    parts = line.split('=', 1)
+                    if len(parts) == 2:
+                        key = parts[0].strip() # Limpiamos espacios en el nombre
+                        value = parts[1].strip().strip("'\"") # Limpiamos espacios y comillas en el valor
+                        os.environ[key] = value
+    else:
+        print(f"⚠️ ATENCIÓN: No se encontró el archivo .env en {env_path}")
+    # -----------------------------------------------
+
     server = HTTPServer(('localhost', 8000), handler)
     print("🚀 Servidor seguro corriendo localmente en http://localhost:8000")
     try:
