@@ -38,18 +38,12 @@ class handler(BaseHTTPRequestHandler):
         auth_header = self.headers.get('Authorization', '')
         secret_key = os.environ.get("INTERNAL_API_KEY")
 
-        # 2. DEBUG VISUAL EN CONSOLA
-        print("\n--- 🔍 DEBUG DE SEGURIDAD ---")
-        print(f"Variable de entorno (INTERNAL_API_KEY): '{secret_key}'")
-        print(f"Header recibido (Authorization): '{auth_header}'")
-        print("-----------------------------\n")
-
-        # 3. Validación de Entorno (Servidor)
+        # 2. Validación de Entorno (Servidor)
         if not secret_key:
             print("❌ ERROR: La variable de entorno INTERNAL_API_KEY está vacía o no se cargó.")
             return self._send_json_response(500, {"error": "Error interno del servidor: Falta configuración de seguridad."})
 
-        # 4. Validación de Petición (Cliente)
+        # 3. Validación de Petición (Cliente)
         expected_header = f"Bearer {secret_key}"
         if not auth_header or auth_header != expected_header:
             print(f"❌ ERROR: Credenciales inválidas. Se esperaba '{expected_header}'")
@@ -57,7 +51,7 @@ class handler(BaseHTTPRequestHandler):
 
         print("✅ Seguridad aprobada. Procesando petición...")
 
-        # 5. Resto de tu lógica
+        # 4. Resto de tu lógica
         try:
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length > 4096:

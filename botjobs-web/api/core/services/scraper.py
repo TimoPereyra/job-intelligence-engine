@@ -1,50 +1,53 @@
+import sys
+import os
+from core.services.ai_handler import call_llm
+from bs4 import BeautifulSoup
 import urllib.request
-import re
 import json
+import re
 
-def extract_content(url):
-    print(f"--> [Scraper] Analizando: {url}")
+def extract_content(target_url):
+    print(f"\n--> [Scraper] Analizando: {target_url}")
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    }
+    
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-        req = urllib.request.Request(url, headers=headers)
+        req = urllib.request.Request(target_url, headers=headers)
         with urllib.request.urlopen(req, timeout=15) as response:
-            html = response.read().decode('utf-8', errors='ignore')
+            html_content = response.read().decode('utf-8', errors='ignore')
+            soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Buscamos el texto en meta description
-            match = re.search(r'meta\s+name=["\']description["\']\s+content=["\'](.*?)["\']', html, re.IGNORECASE | re.DOTALL)
+            # 1. Extraer Imagen (sigue siendo útil)
+            og_image = soup.find("meta", property="og:image")
+            img_url = og_image["content"] if og_image and og_image.has_attr("content") else None
             
-            # Buscamos imagen en meta og:image (la forma más fiable de detectar posts de LinkedIn)
-            img_match = re.search(r'meta\s+property=["\']og:image["\']\s+content=["\'](.*?)["\']', html, re.IGNORECASE)
-            
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            email = re.findall(email_pattern, html)
-            email = email[0] if email else None
+            # 2. Extraer Texto Bruto (el aspirador)
+            for s in soup(["script", "style", "nav", "footer", "header"]):
+                s.extract()
+            raw_text = soup.get_text(separator=' ', strip=True)[:10000]
 
-            # Construcción de la data
-            if match and len(match.group(1)) > 50:
-                full_text = match.group(1)
-                data = {"url": url, "title": full_text.split('\n')[0], "email": email, "description": full_text, "status": "success"}
+            # 3. Llamar a la IA para obtener datos estructurados
+            prompt = f"""
+            Analiza el siguiente texto de una oferta laboral y extrae la información.
+            Devuelve un JSON estricto con: "titulo", "descripcion" (resumen corto), "email".
+            Si no es una vacante o no hay datos, usa null.
+            Texto: {raw_text}
+            """
             
-            # Prioridad 2: Si hay og:image, detectamos imagen
-            elif img_match:
-                data = {"url": url, "title": "Post basado en imagen", "email": email, "description": f"Contenido detectado como imagen. URL: {img_match.group(1)}", "status": "image_detected"}
-            
-            # Prioridad 3: Fallback a búsqueda de imágenes genéricas
-            elif len(re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', html, re.IGNORECASE)) > 2:
-                data = {"url": url, "title": "Post basado en imagen", "email": email, "description": "Contenido detectado como imagen.", "status": "image_detected"}
-            
-            else:
-                data = {"url": url, "title": "Error de extracción", "email": None, "description": "No se pudo extraer texto ni imagen.", "status": "error"}
+            # Aquí invocas a tu función que usa GOOGLE_API_KEY o el modelo que prefieras
+            llm_response = call_llm(prompt) 
+            datos = json.loads(llm_response)
 
-            # AQUÍ EL PRINT DE TODA LA DATA
-            print("\n" + "="*50)
-            print("📊 DATOS EXTRAÍDOS POR EL SCRAPER:")
-            print(json.dumps(data, indent=4, ensure_ascii=False))
-            print("="*50 + "\n")
-            
-            return data
-            
+            return {
+                "url": target_url,
+                "title": datos.get("titulo", "Sin título"),
+                "description": datos.get("descripcion", "No disponible"),
+                "email": datos.get("email"),
+                "img_url": img_url,
+                "status": "success"
+            }
+
     except Exception as e:
-        data = {"url": url, "title": "Error de conexión", "email": None, "description": str(e), "status": "error"}
-        print(f"\n💥 SCRAPER EXCEPTION: {json.dumps(data, indent=4, ensure_ascii=False)}")
-        return data
+        print(f"❌ ERROR CRÍTICO: {str(e)}")
+        return {"url": target_url, "status": "error", "message": str(e)}

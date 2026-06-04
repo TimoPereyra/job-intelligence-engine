@@ -27,5 +27,7 @@ def run_automation_pipeline(job_url):
     return {
         "status": "success",
         "message": "Automatización ejecutada correctamente.",
-        "job_title": scraped_data.get("title")
+        "job_title": scraped_data.get("title"),
+        "description": scraped_data.get("description"),
+        "contact_email": scraped_data.get("email")
     }
