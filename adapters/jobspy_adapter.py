@@ -20,6 +20,31 @@ class JobSpyAdapter:
             "Remote",
         ]
 
+    # Países/regiones de los que NO queremos ofertas
+    SPAM_COUNTRIES = [
+        # países
+        "india", "israel", "china", "pakistan", "bangladesh",
+        "nigeria", "philippines", "ukraine", "egypt", "kenya",
+        "vietnam", "indonesia", "malaysia", "sri lanka",
+        # ciudades frecuentes de India
+        "mumbai", "bangalore", "bengaluru", "hyderabad", "delhi",
+        "pune", "chennai", "kolkata", "ahmedabad", "noida", "gurugram",
+        # Israel
+        "tel aviv", "jerusalem", "haifa",
+        # China
+        "beijing", "shanghai", "shenzhen", "guangzhou",
+        # Pakistan
+        "karachi", "lahore", "islamabad",
+        # Filipinas
+        "manila", "cebu",
+        # Nigeria / Kenia
+        "lagos", "nairobi",
+        # Vietnam
+        "hanoi", "ho chi minh",
+        # Indonesia / Malasia
+        "jakarta", "kuala lumpur",
+    ]
+
     def _clean_text(self, text):
         if not text:
             return ""
@@ -40,39 +65,54 @@ class JobSpyAdapter:
         ]
         return any(k in title.lower() for k in skip_keywords)
 
+    def _should_skip_location(self, location: str) -> bool:
+        """Devuelve True si la ubicación corresponde a un país/ciudad no deseado."""
+        loc = location.lower()
+        return any(country in loc for country in self.SPAM_COUNTRIES)
+
     def _normalize_jobs(self, jobs, fallback_site: str) -> list[dict]:
         # Si es una lista, la convertimos a DataFrame
         if isinstance(jobs, list):
             jobs = pd.DataFrame(jobs)
-        
+
         if jobs is None or jobs.empty:
             return []
 
         normalized = []
-        # iteramos directamente sobre el DataFrame
+        skipped_location = 0
+
         for _, job in jobs.iterrows():
-            # Extraemos usando acceso directo al índice del objeto Series
             title = self._clean_text(job.get("title", ""))
-            
+
             if not title or self._should_skip_job(title):
                 continue
-            
-            # ACCESO SEGURO A PANDAS: usamos .get() sobre el objeto Series
-            # Si el valor es NaN (propio de pandas), lo convertimos a vacío
+
+            location = self._clean_text(job.get("location", ""))
+
+            # Filtro de países no deseados
+            if self._should_skip_location(location):
+                skipped_location += 1
+                continue
+
             raw_desc = job.get("description", "")
             if pd.isna(raw_desc):
                 raw_desc = job.get("job_description", "")
-            
+
             normalized.append({
                 "title":       title,
                 "company":     self._clean_text(job.get("company", "")),
-                "location":    self._clean_text(job.get("location", "")),
+                "location":    location,
                 "description": self._clean_text(raw_desc)[:1500],
                 "url":         job.get("job_url", ""),
                 "source":      job.get("site", fallback_site),
                 "posted_at":   str(job.get("date_posted", "")),
             })
+
+        if skipped_location:
+            logging.info(f"   🚫 {skipped_location} empleos descartados por ubicación no deseada")
+
         return normalized
+
     def _scrape_indeed_google(self, query: str, results_wanted: int,
                                hours_old: int, location: str = "Argentina",
                                is_remote: bool = False) -> list[dict]:
