@@ -5,19 +5,16 @@
       "runtime": "vercel-python@3.0.9"
     }
   },
-  "buildCommand": "cd botjobs-web && pnpm install && vite build --outDir dist",
+  "buildCommand": "cd botjobs-web && pnpm install && pnpm run build",
   "outputDirectory": "botjobs-web/dist",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/process-job",
-      "dest": "/api/process-job.py"
+      "source": "/api/process-job",
+      "destination": "/api/process-job.py"
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
