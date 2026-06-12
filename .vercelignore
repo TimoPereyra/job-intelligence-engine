@@ -1,0 +1,12 @@
+node_modules
+botjobs-web/node_modules
+botjobs-web/dist
+main.py
+test_generator.py
+adapters
+config
+models
+services
+storage
+utils
+core
