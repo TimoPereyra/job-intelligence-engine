@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 const API_KEY = import.meta.env.VITE_INTERNAL_API_KEY || "";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL || "https://job-intelligence-engine-nu.vercel.app/";
 
 export default function ChatBot() {
   const [messages, setMessages] = useState([

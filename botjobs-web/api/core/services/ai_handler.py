@@ -77,7 +77,7 @@ def generate_email_content(scraped_data: dict) -> dict:
             "cuerpo": (
                 f"Hola,\n\nMe gustaría postularme para la posición de {titulo}.\n\n"
                 f"Cuento con experiencia en desarrollo Full Stack utilizando {stack_principal}.\n\n"
-                "Adjunto mi CV para su consideración.\n\nMuchas gracias por su tiempo."
+                f"Adjunto mi CV para su consideración.\n\nMuchas gracias por su tiempo."
             )
         }
 
@@ -107,8 +107,8 @@ def adapt_cv_for_job(scraped_data: dict) -> dict:
     2. EXPERIENCE bullets: Reordenó los bullets de cada trabajo priorizando los más relevantes.
        Podés reformular levemente para usar palabras clave de la oferta, sin inventar nada.
     3. SKILLS: Dentro de cada categoría reordenó las tecnologías priorizando las de la oferta.
-    4. HEADLINE: Actualizá si corresponde para reflejar el rol buscado. Máximo 8 palabras.
-    5. NO INVENTAR: Nunca agregues tecnologías, empresas, títulos o logros que no existan en el perfil.
+    4. HEADLINE: Podés adaptar las tecnologías del headline para alinearlas con la oferta, pero bajo NINGÚN concepto agregues palabras que reduzcan el seniority del candidato como "Junior", "Trainee" o "Principiante". Mantener el perfil enfocado a un nivel con autonomía (Semi-Senior / Ssr). Máximo 8 palabras.
+    5. NO INVENTAR NI QUITAR EXPERIENCIA: Nunca agregues tecnologías, empresas, títulos o logros que no existan en el perfil. Tampoco reduzcas los años de experiencia totales del candidato.
 
     Respondé ÚNICAMENTE con el JSON del perfil adaptado, con exactamente la misma estructura
     que el perfil de entrada. Sin explicaciones, sin markdown, sin texto adicional.
