@@ -9,14 +9,14 @@
       }
     },
     {
-      "src": "api/process-job.py",
+      "src": "botjobs-web/api/process-job.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/api/process-job",
-      "dest": "/api/process-job.py"
+      "dest": "/botjobs-web/api/process-job.py"
     },
     {
       "handle": "filesystem"
