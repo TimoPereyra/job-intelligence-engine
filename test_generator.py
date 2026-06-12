@@ -54,9 +54,24 @@ def run_production_test():
 
     clean_jobs = filter_svc.filter_jobs(deduped)
     
-    # 4. Inserción en Base de Datos
-    print(f"\n📤 Guardando {len(clean_jobs)} ofertas limpias en DB...")
-    storage.save_raw_jobs(clean_jobs)
+    # 4. Calificación directa con IA (Todo en la RAM de la máquina virtual)
+    print("\n🧠 Calificando ofertas con IA...")
+    if clean_jobs:
+        # La IA califica la lista directamente en memoria
+        ranked_jobs = qualifier.qualify_jobs(clean_jobs)
+        
+        # Le pasamos todo al manager, que filtra los > 0 antes de subir a Supabase
+        saved_jobs = storage.save_ranked_jobs(ranked_jobs)
+        
+        print(f"✅ Calificación finalizada para {len(ranked_jobs)} ofertas.")
+        
+        # Resumen de recomendaciones basado en lo que realmente se guardó
+        recom = [j for j in saved_jobs if j.get("recommended")]
+        print(f"⭐ Ofertas recomendadas detectadas y guardadas: {len(recom)}")
+    else:
+        print("⚠️ No hay ofertas limpias para calificar.")
+
+    print("\n🏁 PIPELINE FINALIZADO CON ÉXITO")
 
     # 5. Calificación con IA
     print("\n🧠 Calificando ofertas con IA...")

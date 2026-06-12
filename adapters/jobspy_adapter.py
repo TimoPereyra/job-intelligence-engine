@@ -1,4 +1,3 @@
-# adapters/jobspy_adapter.py
 import logging
 import re
 import time
@@ -9,51 +8,57 @@ from jobspy import scrape_jobs
 class JobSpyAdapter:
     def __init__(self):
         self.default_results_wanted = 25
-        self.default_hours_old = 48
+        self.default_hours_old = 12
         self.stable_sites   = ["indeed", "google"]
         self.linkedin_sites = ["linkedin"]
 
-        # Locations para LinkedIn — cada una trae un conjunto distinto de avisos
-        self.linkedin_locations = [
-            "Argentina",
-            "Buenos Aires, Argentina",
-            "Remote",
+        self.linkedin_searches = [
+            {"location": "Buenos Aires, Argentina", "is_remote": False, "market": "latam-es"},
+            {"location": "Argentina",               "is_remote": True,  "market": "latam-es"},
+            {"location": "Uruguay",                 "is_remote": True,  "market": "latam-es"},
+            {"location": "Chile",                   "is_remote": True,  "market": "latam-es"},
+            {"location": "Colombia",                "is_remote": True,  "market": "latam-es"},
+            {"location": "Mexico",                  "is_remote": True,  "market": "latam-es"},
         ]
 
-    # Países/regiones de los que NO queremos ofertas
+        self.indeed_searches = [
+            {"location": "Argentina", "is_remote": False, "market": "latam-es"},
+            {"location": "Argentina", "is_remote": True,  "market": "latam-es"},
+        ]
+
     SPAM_COUNTRIES = [
-        # países
         "india", "israel", "china", "pakistan", "bangladesh",
         "nigeria", "philippines", "ukraine", "egypt", "kenya",
         "vietnam", "indonesia", "malaysia", "sri lanka",
-        # ciudades frecuentes de India
         "mumbai", "bangalore", "bengaluru", "hyderabad", "delhi",
         "pune", "chennai", "kolkata", "ahmedabad", "noida", "gurugram",
-        # Israel
         "tel aviv", "jerusalem", "haifa",
-        # China
         "beijing", "shanghai", "shenzhen", "guangzhou",
-        # Pakistan
         "karachi", "lahore", "islamabad",
-        # Filipinas
         "manila", "cebu",
-        # Nigeria / Kenia
         "lagos", "nairobi",
-        # Vietnam
         "hanoi", "ho chi minh",
-        # Indonesia / Malasia
         "jakarta", "kuala lumpur",
     ]
 
-    def _clean_text(self, text):
+    MARKET_SEARCH_SUFFIX = {
+        "latam-es":  "trabajo remoto",
+        "global-en": "remote job",
+    }
+
+    def _safe_str(self, value) -> str:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return ""
+        return str(value).strip()
+
+    def _clean_text(self, text: str) -> str:
         if not text:
             return ""
-        text = str(text)
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
-    def _should_skip_job(self, title):
+    def _should_skip_job(self, title: str) -> bool:
         skip_keywords = [
             "senior", "sr.", "sr ", "staff", "principal", "lead", "architect",
             "golang", "ruby", "rails", "scala",
@@ -66,15 +71,24 @@ class JobSpyAdapter:
         return any(k in title.lower() for k in skip_keywords)
 
     def _should_skip_location(self, location: str) -> bool:
-        """Devuelve True si la ubicación corresponde a un país/ciudad no deseado."""
         loc = location.lower()
         return any(country in loc for country in self.SPAM_COUNTRIES)
 
+    def _normalize_url(self, url: str) -> str:
+        """Elimina parámetros de tracking para comparar URLs limpias."""
+        if not url:
+            return ""
+        return url.split("?")[0].split("&")[0].strip().rstrip("/").lower()
+
+    def _title_company_key(self, title: str, company: str) -> str:
+        """Clave normalizada título+empresa para detectar duplicados con URL distinta."""
+        t = re.sub(r"[^a-z0-9]", "", title.lower().strip())
+        c = re.sub(r"[^a-z0-9]", "", company.lower().strip())
+        return f"{t}|{c}"
+
     def _normalize_jobs(self, jobs, fallback_site: str) -> list[dict]:
-        # Si es una lista, la convertimos a DataFrame
         if isinstance(jobs, list):
             jobs = pd.DataFrame(jobs)
-
         if jobs is None or jobs.empty:
             return []
 
@@ -82,49 +96,44 @@ class JobSpyAdapter:
         skipped_location = 0
 
         for _, job in jobs.iterrows():
-            title = self._clean_text(job.get("title", ""))
-
+            title = self._clean_text(self._safe_str(job.get("title")))
             if not title or self._should_skip_job(title):
                 continue
 
-            location = self._clean_text(job.get("location", ""))
-
-            # Filtro de países no deseados
-            if self._should_skip_location(location):
+            location = self._clean_text(self._safe_str(job.get("location")))
+            if not location or self._should_skip_location(location):
                 skipped_location += 1
                 continue
 
-            raw_desc = job.get("description", "")
-            if pd.isna(raw_desc):
-                raw_desc = job.get("job_description", "")
+            raw_desc = self._safe_str(job.get("description") or job.get("job_description"))
 
             normalized.append({
                 "title":       title,
-                "company":     self._clean_text(job.get("company", "")),
+                "company":     self._clean_text(self._safe_str(job.get("company"))),
                 "location":    location,
                 "description": self._clean_text(raw_desc)[:1500],
-                "url":         job.get("job_url", ""),
-                "source":      job.get("site", fallback_site),
-                "posted_at":   str(job.get("date_posted", "")),
+                "url":         self._safe_str(job.get("job_url")),
+                "source":      self._safe_str(job.get("site")) or fallback_site,
+                "posted_at":   self._safe_str(job.get("date_posted")),
             })
 
         if skipped_location:
-            logging.info(f"   🚫 {skipped_location} empleos descartados por ubicación no deseada")
+            logging.info(f"    🚫 {skipped_location} descartados por ubicación no deseada/vacía")
 
         return normalized
 
     def _scrape_indeed_google(self, query: str, results_wanted: int,
-                               hours_old: int, location: str = "Argentina",
-                               is_remote: bool = False) -> list[dict]:
-        label = f"Indeed+Google ({'remoto' if is_remote else location})"
-        print(f"   🔎 {label}...")
+                               hours_old: int, location: str,
+                               is_remote: bool, market: str) -> list[dict]:
+        suffix = self.MARKET_SEARCH_SUFFIX.get(market, "")
+        label  = f"Indeed+Google ({market} / {'remoto' if is_remote else location})"
+        print(f"    🔎 {label}...")
         try:
             time.sleep(random.uniform(3, 7))
-            google_term = f"{query} {'remote job' if is_remote else f'trabajo {location}'}"
             jobs = scrape_jobs(
                 site_name=self.stable_sites,
                 search_term=query,
-                google_search_term=google_term,
+                google_search_term=f"{query} {suffix}",
                 location="remote" if is_remote else location,
                 results_wanted=results_wanted,
                 hours_old=hours_old,
@@ -133,46 +142,63 @@ class JobSpyAdapter:
                 is_remote=is_remote,
             )
             results = self._normalize_jobs(jobs, label.lower())
-            print(f"   ✅ {label}: {len(results)} empleos")
+            print(f"    ✅ {label}: {len(results)} empleos")
             return results
         except Exception as e:
-            logging.error(f"   ⚠️ Error en {label}: {e}")
+            logging.error(f"    ⚠️ Error en {label}: {e}")
             return []
 
     def _scrape_linkedin(self, query: str, hours_old: int) -> list[dict]:
-        """
-        Llama a LinkedIn una vez por cada location.
-        Delay de 12-20s entre llamadas para no disparar el rate limit.
-        """
         all_results = []
-        for location in self.linkedin_locations:
-            print(f"   🔎 LinkedIn ({location})...")
+        for item in self.linkedin_searches:
+            loc_name  = item["location"]
+            is_remote = item["is_remote"]
+            market    = item["market"]
+            label     = f"LinkedIn ({market} / {loc_name}{'- remoto' if is_remote else ''})"
+            print(f"    🔎 {label}...")
             try:
                 time.sleep(random.uniform(12, 20))
                 jobs = scrape_jobs(
                     site_name=self.linkedin_sites,
                     search_term=query,
-                    location=location,
-                    results_wanted=25,          # techo fijo por llamada
+                    location=loc_name,
+                    results_wanted=25,
                     hours_old=hours_old,
                     linkedin_fetch_description=True,
+                    is_remote=is_remote,
                 )
-                results = self._normalize_jobs(jobs, f"linkedin-{location.split(',')[0].lower()}")
-                print(f"   ✅ LinkedIn ({location}): {len(results)} empleos")
+                results = self._normalize_jobs(jobs, f"linkedin-{market}")
+                print(f"    ✅ {label}: {len(results)} empleos")
                 all_results += results
             except Exception as e:
-                logging.error(f"   ⚠️ LinkedIn ({location}) falló: {e}")
+                logging.error(f"    ⚠️ {label} falló: {e}")
                 continue
         return all_results
 
     def _deduplicate(self, jobs: list[dict]) -> list[dict]:
-        seen, unique = set(), []
+        seen_urls   = set()
+        seen_titles = set()
+        unique      = []
+        dupes       = 0
+
         for job in jobs:
-            url = job.get("url", "").strip()
-            key = url if url else f"{job['title']}|{job['company']}"
-            if key not in seen:
-                seen.add(key)
-                unique.append(job)
+            url_key   = self._normalize_url(job.get("url", ""))
+            title_key = self._title_company_key(job.get("title", ""), job.get("company", ""))
+
+            if (url_key and url_key in seen_urls) or title_key in seen_titles:
+                dupes += 1
+                continue
+
+            if url_key:
+                seen_urls.add(url_key)
+            if title_key:
+                seen_titles.add(title_key)
+
+            unique.append(job)
+
+        if dupes:
+            logging.info(f"    🔁 {dupes} duplicados eliminados en dedup del adapter")
+
         return unique
 
     def search(self, query: str, results_wanted: int = None, hours_old: int = None) -> list[dict]:
@@ -183,13 +209,14 @@ class JobSpyAdapter:
 
         all_jobs = []
 
-        # 1. Indeed + Google: presencial Argentina
-        all_jobs += self._scrape_indeed_google(query, results_wanted, hours_old,
-                                                location="Argentina", is_remote=False)
-        # 2. Indeed + Google: solo remoto (trae avisos distintos)
-        all_jobs += self._scrape_indeed_google(query, results_wanted, hours_old,
-                                                is_remote=True)
-        # 3. LinkedIn: 3 locations, ~25 resultados c/u
+        for search in self.indeed_searches:
+            all_jobs += self._scrape_indeed_google(
+                query, results_wanted, hours_old,
+                location=search["location"],
+                is_remote=search["is_remote"],
+                market=search["market"],
+            )
+
         all_jobs += self._scrape_linkedin(query, hours_old)
 
         unique = self._deduplicate(all_jobs)
