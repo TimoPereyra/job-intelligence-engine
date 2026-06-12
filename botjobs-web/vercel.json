@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "botjobs-web/package.json",
-      "use": "@vercel/static-build"
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     },
     {
       "src": "api/process-job.py",
@@ -16,11 +19,8 @@
       "dest": "api/process-job.py"
     },
     {
-      "handle": "filesystem"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/botjobs-web/dist/$1"
     }
   ]
 }
