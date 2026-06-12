@@ -5,8 +5,11 @@ import sys
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
-# Asegura que Python encuentre la carpeta 'core' al ejecutar localmente
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Antes (incorrecto para Vercel)
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Después (correcto)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.orchestrator import run_automation_pipeline
 from core.services.pdf_generator import generate_cv_pdf  # Servicio modular
 from core.services.cv_data import PROFILE  # Tu objeto estático base
