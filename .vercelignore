@@ -1,3 +1,4 @@
+# .vercelignore
 node_modules
 botjobs-web/node_modules
 botjobs-web/dist
@@ -10,3 +11,7 @@ services
 storage
 utils
 core
+__pycache__
+*.pyc
+.git
+requirements.txt
