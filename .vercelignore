@@ -14,4 +14,4 @@ core
 __pycache__
 *.pyc
 .git
-requirements.txt
+/requirements.txt
