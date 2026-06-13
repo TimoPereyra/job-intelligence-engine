@@ -3,7 +3,7 @@
   "functions": {
     "api/process-job.py": {
       "runtime": "@vercel/python@4.3.1",
-      "includeFiles": "api/**"
+      "includeFiles": "core/**"
     }
   },
   "buildCommand": "cd botjobs-web && pnpm install && pnpm run build",
