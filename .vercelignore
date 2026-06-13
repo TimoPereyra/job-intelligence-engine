@@ -7,7 +7,7 @@ test_generator.py
 adapters
 config
 models
-services
+/services
 storage
 utils
 core
