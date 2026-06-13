@@ -4,12 +4,6 @@ import re
 import sys
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
-
-# Antes (incorrecto para Vercel)
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Después (correcto)
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from jobcore.orchestrator import run_automation_pipeline
 from jobcore.services.pdf_generator import generate_cv_pdf
 from jobcore.services.cv_data import PROFILE
