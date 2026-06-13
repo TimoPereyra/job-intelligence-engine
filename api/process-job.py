@@ -1,11 +1,22 @@
-import os
-import json
-import re
 import sys
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlparse
+import os
 
-# Este es el salvavidas que obliga a Vercel a mirar en tu carpeta
+# DEBUG - esto va a aparecer en los logs de Vercel
+print("=== DEBUG PATH ===")
+print("__file__:", __file__)
+print("cwd:", os.getcwd())
+print("sys.path:", sys.path)
+print("Contenido del directorio actual:", os.listdir(os.getcwd()))
+print("Contenido de /var/task (Lambda root):", os.listdir("/var/task"))
+try:
+    print("Contenido de /var/task/api:", os.listdir("/var/task/api"))
+except:
+    print("No existe /var/task/api")
+print("==================")
+
+# Forzamos ambas rutas posibles
+sys.path.insert(0, "/var/task")
+sys.path.insert(0, "/var/task/api")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from jobcore.orchestrator import run_automation_pipeline
