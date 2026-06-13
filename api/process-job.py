@@ -1,11 +1,23 @@
-import os
-import json
-import re
 import sys
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlparse
+import os
+sys.path.insert(0, "/var/task/api")
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import importlib, traceback
+for mod in [
+    "jobcore",
+    "jobcore.services",
+    "jobcore.services.cv_data",
+    "jobcore.services.pdf_generator",
+    "jobcore.services.ai_handler",
+    "jobcore.services.scraper",
+    "jobcore.orchestrator",
+]:
+    try:
+        importlib.import_module(mod)
+        print(f"✅ {mod} OK")
+    except Exception as e:
+        print(f"❌ {mod} FALLÓ: {e}")
+        traceback.print_exc()
 
 from jobcore.orchestrator import run_automation_pipeline
 from jobcore.services.pdf_generator import generate_cv_pdf
