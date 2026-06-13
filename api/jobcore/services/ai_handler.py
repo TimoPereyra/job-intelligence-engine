@@ -3,7 +3,7 @@ from google.genai import types
 import os
 import json
 
-from core.services.cv_data import PROFILE
+from jobcore.services.cv_data import PROFILE
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 

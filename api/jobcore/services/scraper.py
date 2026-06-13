@@ -1,6 +1,6 @@
 import sys
 import os
-from core.services.ai_handler import call_llm
+from jobcore.services.ai_handler import call_llm
 from bs4 import BeautifulSoup
 import urllib.request
 import json

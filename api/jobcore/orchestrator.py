@@ -1,5 +1,5 @@
-from core.services.scraper import extract_content
-from core.services.ai_handler import generate_email_content
+from jobcore.services.scraper import extract_content
+from jobcore.services.ai_handler import generate_email_content
 
 def run_automation_pipeline(job_url):
     print("\n=== INICIANDO PIPELINE DE BOTJOBS ===")

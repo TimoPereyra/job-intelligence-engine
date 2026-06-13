@@ -110,7 +110,7 @@ def generate_cv_pdf(profile: dict, scraped_data: dict = None) -> bytes:
     # Integración simulada de la tubería de IA
     if scraped_data:
         try:
-            from core.services.ai_handler import adapt_cv_for_job
+            from jobcore.services.ai_handler import adapt_cv_for_job
             print("Adaptando CV con IA...")
             profile = adapt_cv_for_job(scraped_data)
         except ImportError:
