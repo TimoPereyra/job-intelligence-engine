@@ -10,9 +10,6 @@ from reportlab.platypus import (
 )
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 
-# Asegurar que el directorio de salida existe
-os.makedirs("/mnt/user-data/outputs", exist_ok=True)
-
 # ── Paleta de Colores Corporativa y Elegante (ATS-Friendly) ─────────────────
 PRIMARY = colors.HexColor("#1e293b")     # Slate oscuro para textos principales
 TEXT_DARK = colors.HexColor("#334155")   # Gris azulado para descripciones y bullets
@@ -308,7 +305,7 @@ PROFILE = {
 
 if __name__ == "__main__":
     pdf_bytes = generate_cv_pdf(PROFILE)
-    output_path = "/mnt/user-data/outputs/CV_Timoteo_Pereyra.pdf"
+    output_path = "/tmp/CV_Timoteo_Pereyra.pdf" 
     with open(output_path, "wb") as f:
         f.write(pdf_bytes)
     print(f"PDF generado exitosamente en: {output_path}")
