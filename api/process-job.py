@@ -10,9 +10,9 @@ from urllib.parse import urlparse
 
 # Después (correcto)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from core.orchestrator import run_automation_pipeline
-from core.services.pdf_generator import generate_cv_pdf  # Servicio modular
-from core.services.cv_data import PROFILE  # Tu objeto estático base
+from jobcore.orchestrator import run_automation_pipeline
+from jobcore.services.pdf_generator import generate_cv_pdf
+from jobcore.services.cv_data import PROFILE
 
 class handler(BaseHTTPRequestHandler):
 
