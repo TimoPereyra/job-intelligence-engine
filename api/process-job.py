@@ -51,7 +51,11 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
         self.end_headers()
+        
+    def do_GET(self):
+        self._send_json_response(200, {"status": "ok"})
 
+        
     def do_POST(self):
         # 1. Verificación de origen
         origin = self.headers.get('Origin', '')
