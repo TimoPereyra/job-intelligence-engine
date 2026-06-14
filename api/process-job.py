@@ -5,12 +5,13 @@ import sys
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
-# Este es el salvavidas que obliga a Vercel a mirar en tu carpeta
 sys.path.insert(0, "/var/task/api")
 
 from jobcore.orchestrator import run_automation_pipeline
 from jobcore.services.pdf_generator import generate_cv_pdf
 from jobcore.services.cv_data import PROFILE
+
+ALLOWED_ORIGIN = "https://job-intelligence-engine-nu.vercel.app"
 
 class handler(BaseHTTPRequestHandler):
 
@@ -18,7 +19,7 @@ class handler(BaseHTTPRequestHandler):
         try:
             self.send_response(status_code)
             self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*') 
+            self.send_header('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
             self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
             self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
             self.end_headers()
@@ -34,7 +35,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_response(status_code)
             self.send_header('Content-type', 'application/pdf')
             self.send_header('Content-Disposition', f'attachment; filename={filename}')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
             self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
             self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
             self.end_headers()
@@ -46,33 +47,30 @@ class handler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
         self.end_headers()
 
     def do_POST(self):
-        # 1. Capa de Seguridad Global
-        auth_header = self.headers.get('Authorization', '')
+        # 1. Verificación de origen
+        origin = self.headers.get('Origin', '')
+        if origin != ALLOWED_ORIGIN:
+            print(f"❌ Origen no permitido: {origin}")
+            return self._send_json_response(403, {"error": "Origen no permitido."})
+
+        # 2. Verificar que la API key está configurada en el servidor
         secret_key = os.environ.get("INTERNAL_API_KEY")
-
         if not secret_key:
-            print("❌ ERROR: La variable de entorno INTERNAL_API_KEY está vacía o no se cargó.")
-            return self._send_json_response(500, {"error": "Error interno del servidor: Falta configuración de seguridad."})
+            print("❌ ERROR: INTERNAL_API_KEY no configurada.")
+            return self._send_json_response(500, {"error": "Error interno del servidor."})
 
-        expected_header = f"Bearer {secret_key}"
-        if not auth_header or auth_header != expected_header:
-            print("❌ ERROR: Credenciales inválidas.")
-            return self._send_json_response(401, {"error": "Acceso denegado."})
-
-        # 2. Enrutador por Path (Manejo de rutas múltiples)
+        # 3. Enrutador por Path
         parsed_url = urlparse(self.path)
         path = parsed_url.path.rstrip('/')
 
-        # Lectura segura del payload de la petición
         try:
             content_length = int(self.headers.get('Content-Length', 0))
-            # Ajuste de límite superior para cargas útiles complejas
             if content_length > 65536: 
                 return self._send_json_response(400, {"error": "Petición demasiado grande."})
 
@@ -81,7 +79,6 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             return self._send_json_response(400, {"error": f"JSON inválido o malformado: {str(e)}"})
 
-        # --- Despacho de Rutas ---
         if path == "" or path == "/api/process-job":
             return self.handle_process_job(payload)
             
@@ -91,8 +88,6 @@ class handler(BaseHTTPRequestHandler):
         else:
             return self._send_json_response(404, {"error": f"Ruta '{path}' no encontrada."})
 
-    # --- Controladores Aislados ---
-
     def handle_process_job(self, payload):
         print("🚀 Ejecutando handler: /api/process-job")
         try:
@@ -101,7 +96,6 @@ class handler(BaseHTTPRequestHandler):
             if not job_url or not re.match(r'^https?://', job_url):
                 return self._send_json_response(400, {"error": "URL inválida."})
 
-            # Ejecución del pipeline de automatización
             resultado = run_automation_pipeline(job_url)
             
             if resultado.get("status") == "error":
@@ -116,14 +110,9 @@ class handler(BaseHTTPRequestHandler):
     def handle_generate_pdf(self, payload):
         print("📄 Ejecutando handler: /api/generate-pdf")
         try:
-            # Capturamos la vacante que viene estructurada desde el cliente
             scraped_data = payload.get("scraped_data")
-
-            # Invocamos al generador pasándole el perfil estático y los datos de la vacante.
-            # Si scraped_data existe, pdf_generator llamará internamente a la IA.
             pdf_bytes = generate_cv_pdf(PROFILE, scraped_data)
             
-            # Formateamos un nombre limpio para la descarga del usuario
             filename = "CV_Timoteo_Pereyra_ATS.pdf"
             if scraped_data and scraped_data.get("company"):
                 empresa_clean = "".join(c for c in scraped_data["company"] if c.isalnum() or c in (' ', '_')).strip().replace(' ', '_')
@@ -139,7 +128,6 @@ class handler(BaseHTTPRequestHandler):
 if __name__ == '__main__':
     from http.server import HTTPServer
     
-    # --- Cargador Nativo Seguro de .env ---
     current_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(os.path.dirname(current_dir)) 
     env_path = os.path.join(root_dir, '.env')
@@ -158,7 +146,6 @@ if __name__ == '__main__':
     else:
         print(f"⚠️ ATENCIÓN: No se encontró el archivo .env en {env_path}")
 
-    # Servidor multiruta listo
     server = HTTPServer(('localhost', 8000), handler)
     print("🚀 Servidor seguro multiruta corriendo en http://localhost:8000")
     try:

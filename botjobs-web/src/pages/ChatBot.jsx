@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const API_KEY = import.meta.env.VITE_INTERNAL_API_KEY || "";
-const API_URL = import.meta.env.VITE_API_URL || "https://job-intelligence-engine-nu.vercel.app/api/process-job";
+const API_BASE = "https://job-intelligence-engine-nu.vercel.app";
 
 export default function ChatBot() {
   const [messages, setMessages] = useState([
@@ -11,7 +10,7 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(false);
   const [analysisCount, setAnalysisCount] = useState(0);
   const [emailPreview, setEmailPreview] = useState({ to: '', asunto: '', cuerpo: '' });
-  const [scrapedData, setScrapedData] = useState(null); // <- Nuevo estado para guardar la data de la vacante
+  const [scrapedData, setScrapedData] = useState(null);
   const [hasPreview, setHasPreview] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pdfBase64, setPdfBase64] = useState(null);
@@ -31,9 +30,9 @@ export default function ChatBot() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch(`${API_BASE}/api/process-job`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
       const data = await res.json();
@@ -50,7 +49,6 @@ export default function ChatBot() {
           cuerpo: parsed.cuerpo || parsed
         });
 
-        // Guardamos los datos estructurados para tenerlos listos para la descarga del PDF
         setScrapedData({
           title: data.job_title || 'Vacante',
           company: data.company || 'No especificada',
@@ -81,7 +79,6 @@ export default function ChatBot() {
   };
 
   const downloadCV = async () => {
-    // Validamos usando el estado local que acabamos de persistir
     if (!scrapedData || !scrapedData.title || isLoading) {
       alert("Primero debés procesar una oferta válida para poder adaptar tu CV.");
       return;
@@ -90,12 +87,9 @@ export default function ChatBot() {
     try {
       setIsLoading(true);
 
-      const response = await fetch(`${API_URL}/api/generate-pdf`, {
+      const response = await fetch(`${API_BASE}/api/generate-pdf`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${API_KEY}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scraped_data: {
             title: scrapedData.title,
@@ -121,10 +115,8 @@ export default function ChatBot() {
         .replace(/[^a-zA-Z0-9_]/g, '');
         
       a.download = `CV_Timoteo_Pereyra_${empresaClean}.pdf`;
-      
       document.body.appendChild(a);
       a.click();
-      
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
@@ -235,7 +227,6 @@ export default function ChatBot() {
           ) : (
             <>
               <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 min-h-0">
-                {/* Para */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-medium tracking-[0.1em] text-zinc-500 uppercase"
                          style={{ fontFamily: "'DM Mono', monospace" }}>Para</label>
@@ -247,7 +238,6 @@ export default function ChatBot() {
                     style={{ fontFamily: "'DM Mono', monospace" }}
                   />
                 </div>
-                {/* Asunto */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-medium tracking-[0.1em] text-zinc-500 uppercase"
                          style={{ fontFamily: "'DM Mono', monospace" }}>Asunto</label>
@@ -257,7 +247,6 @@ export default function ChatBot() {
                     className="bg-[#1a1a1d] border border-white/[0.07] rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none focus:border-[#4edea3]/30 transition-colors w-full"
                   />
                 </div>
-                {/* Mensaje */}
                 <div className="flex flex-col gap-1.5 flex-1 min-h-0">
                   <label className="text-[10px] font-medium tracking-[0.1em] text-zinc-500 uppercase"
                          style={{ fontFamily: "'DM Mono', monospace" }}>Mensaje</label>
