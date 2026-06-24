@@ -5,7 +5,7 @@ on:
     # 09:00 UTC y 21:00 UTC (Equivale a 06:00 y 18:00 hora Argentina)
     - cron: '0 9 * * *'
     - cron: '0 21 * * *'
-
+  workflow_dispatch: 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
